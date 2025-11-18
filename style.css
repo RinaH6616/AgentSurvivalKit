@@ -1,0 +1,62 @@
+/* Body & fonts */
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #fdf6e3; /* light beige */
+  color: #333;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+
+/* Header */
+header {
+  margin-top: 40px;
+}
+
+header h1 {
+  color: #ff5722; /* bright orange */
+  font-size: 3em;
+  margin-bottom: 10px;
+}
+
+header p {
+  font-size: 1.2em;
+  color: #555;
+}
+
+/* Game Buttons */
+#game-selection {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+#game-selection button {
+  background-color: #ffd966;
+  border: none;
+  padding: 15px 25px;
+  font-size: 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.2s;
+}
+
+#game-selection button:hover {
+  transform: scale(1.05);
+  background-color: #ffcc33;
+}
+
+/* Game container */
+#game-container {
+  margin-top: 40px;
+}
+
+/* Footer */
+footer {
+  margin-top: 50px;
+  font-size: 14px;
+  color: #777;
+  margin-bottom: 20px;
+}

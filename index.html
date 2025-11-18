@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent Survival Kit — Games Hub</title>
+<style>
+  /* === Shared Theme === */
+  :root{
+    --beige:#fdf6e3;
+    --accent:#ff5722;
+    --muted:#555;
+    --panel:#fff;
+    --tile-empty:#f3e6c5;
+    --tile-filled:#ffe8b3;
+  }
+  html,body{height:100%;margin:0;font-family:'Poppins',sans-serif;background:var(--beige);color:#222}
+  .wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;padding:24px 12px 40px}
+  header{margin-top:16px;text-align:center}
+  header h1{color:var(--accent);font-size:2.4rem;margin:6px 0}
+  header p{color:var(--muted);margin:0 0 10px;font-size:1rem}
+
+  /* Hub layout */
+  .hub { width:100%; max-width:1100px; margin-top:18px; display:flex; gap:18px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
+  .game-card { background:var(--panel); width:300px; border-radius:12px; padding:18px; box-shadow:0 8px 30px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap:12px; align-items:flex-start; cursor:pointer; transition:transform .12s ease }
+  .game-card:hover { transform:translateY(-6px) }
+  .game-icon { font-size:36px; background:#fff; padding:8px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.06) }
+  .game-title { font-weight:700; font-size:18px; color:#222 }
+  .game-desc { color:var(--muted); font-size:14px }
+
+  /* Container where games load */
+  #appContainer { width:100%; max-width:1100px; margin-top:18px; }
+
+  /* The game CSS (same style as final version) */
+  .main {
+    display:grid;
+    grid-template-columns: 280px 1fr 260px;
+    gap:20px;
+    width:100%;
+    align-items:start;
+  }
+  .panel { background:var(--panel); padding:18px; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.08) }
+  .goals h3{margin:0 0 8px;color:#333}
+  .desc{color:var(--muted);font-size:0.95rem;margin-bottom:12px}
+  .goal-list{display:flex;flex-direction:column;gap:10px}
+  .goal-item{display:flex;align-items:center;gap:10px}
+  .goal-icon{width:46px;height:46px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 6px rgba(0,0,0,0.06)}
+  .goal-meta{flex:1}
+  .goal-meta .label{font-weight:600;color:#333}
+  .progress-wrap{height:10px;background:#eee;border-radius:6px;margin-top:6px;overflow:hidden}
+  .progress{height:100%;background:linear-gradient(90deg,var(--accent),#ffb74d);transform-origin:left;transition:width .4s ease}
+
+  .game-area{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .score-row{display:flex;gap:14px;align-items:center;justify-content:center;}
+  .score-box{background:#fff;padding:10px 12px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.06);font-weight:700}
+  .board-wrapper{background:var(--panel);padding:18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center}
+  #board{display:grid;grid-template-columns:repeat(4,80px);grid-auto-rows:80px;gap:12px;justify-content:center}
+  .tile{width:80px;height:80px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 2px 6px rgba(0,0,0,0.12);transition:transform .12s ease, background .12s linear}
+  .tile.empty{background:var(--tile-empty);color:transparent}
+  .tile.filled{background:var(--tile-filled)}
+  .controls{display:flex;gap:10px;margin-top:12px;align-items:center}
+  .arrow-btn{background:#ffd966;border:none;padding:10px;border-radius:8px;cursor:pointer;font-size:18px;box-shadow:0 6px 18px rgba(0,0,0,0.08)}
+  .small{font-size:13px;padding:6px 10px}
+
+  .notify-box{min-height:120px;display:flex;flex-direction:column;gap:12px;align-items:stretch}
+  #notification{display:none;padding:10px;border-radius:10px;background:var(--accent);color:white;font-weight:700;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.12)}
+  .leaderboard{background:#fff;padding:10px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.06)}
+  .leaderboard h4{margin:0 0 8px}
+  .leaderboard ol{padding-left:18px;margin:0}
+  .leaderboard li{margin:6px 0;color:#333}
+
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:50}
+  .overlay .card{background:white;padding:20px;border-radius:12px;width:320px;text-align:center}
+  .overlay input{padding:8px;border-radius:8px;border:1px solid #ddd;width:100%;margin-top:8px}
+
+  @media (max-width:980px){
+    .main{grid-template-columns:1fr;padding:0 12px}
+    .notify-box{order:3}
+    .goals{order:1}
+    .game-area{order:2}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Agent Survival Kit 🕵️‍♂️</h1>
+    <p>Kill time, level up your soft skills, and survive the shift!</p>
+  </header>
+
+  <!-- Games Hub -->
+  <div class="hub" id="hub">
+    <div class="game-card" id="card-shift" onclick="loadShiftMerge()">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="game-icon">☕</div>
+        <div>
+          <div class="game-title">Shift Merge 2048</div>
+          <div class="game-desc">Office-themed 2048 — merge icons, unlock ranks, and climb the leaderboard.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-card" id="card-desk" onclick="loadDeskGame()">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="game-icon">🗂️</div>
+        <div>
+          <div class="game-title">Organize Desk Before HR</div>
+          <div class="game-desc">Fast-paced tidy-up mini-game (coming soon).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-card" id="card-puzzle" onclick="loadPuzzleGame()">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="game-icon">🎯</div>
+        <div>
+          <div class="game-title">Quick Puzzles & Sorting</div>
+          <div class="game-desc">Short puzzles to refresh your brain (coming soon).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Where games will render -->
+  <div id="appContainer"></div>
+</div>
+
+<script>
+/* ===========================
+   Hub -> selected game loaders
+   =========================== */
+function clearContainer(){
+  document.getElementById('appContainer').innerHTML = '';
+}
+function loadShiftMerge(){
+  clearContainer();
+  // Insert the full Shift Merge game HTML
+  document.getElementById('appContainer').innerHTML = `
+  <div class="main">
+    <div class="panel goals">
+      <h3>Goals — what you're collecting</h3>
+      <p class="desc">Reach icons to unlock levels. Progress bars show how close your largest tile is to each goal.</p>
+      <div id="goalList" class="goal-list"></div>
+    </div>
+
+    <div class="panel game-area">
+      <div class="score-row">
+        <div class="score-box">Score: <span id="scoreValue">0</span></div>
+        <div class="score-box">Best: <span id="bestValue">0</span></div>
+        <div class="score-box">Level: <span id="levelValue">1</span></div>
+      </div>
+
+      <div class="board-wrapper">
+        <div id="board" aria-label="game board"></div>
+
+        <div class="controls">
+          <button class="arrow-btn" id="leftBtn">◀</button>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button class="arrow-btn" id="upBtn">▲</button>
+            <button class="arrow-btn" id="downBtn">▼</button>
+          </div>
+          <button class="arrow-btn" id="rightBtn">▶</button>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:10px">
+          <button class="arrow-btn small" id="restartBtn">Restart</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel notify-box">
+      <div id="notification">Upgrade!</div>
+      <div class="leaderboard">
+        <h4>Leaderboard (local)</h4>
+        <ol id="leaderList"></ol>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay">
+    <div class="card">
+      <h3>Shift Completed! 🎉</h3>
+      <p>Your Score: <strong id="finalScore">0</strong></p>
+      <p>Best: <strong id="finalBest">0</strong></p>
+      <div style="margin-top:8px;text-align:left">
+        <label>Enter your name for the leaderboard</label>
+        <input id="playerName" placeholder="Your name" />
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button id="saveScore" class="arrow-btn small">Save</button>
+          <button id="closeOverlay" class="arrow-btn small">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  `;
+  // After HTML injection, load the Shift Merge game logic
+  initShiftMerge(); 
+}
+
+function loadDeskGame(){
+  clearContainer();
+  document.getElementById('appContainer').innerHTML = `
+    <div class="panel" style="text-align:center">
+      <h2>Organize Desk Before HR — Coming Soon 🧹</h2>
+      <p class="desc">We’re designing a fun tidy-up mini-game to help agents practice prioritization. Will be added soon.</p>
+      <button class="arrow-btn" onclick="loadShiftMerge()">Play Shift Merge instead</button>
+    </div>`;
+}
+
+function loadPuzzleGame(){
+  clearContainer();
+  document.getElementById('appContainer').innerHTML = `
+    <div class="panel" style="text-align:center">
+      <h2>Quick Puzzles & Sorting — Coming Soon 🎯</h2>
+      <p class="desc">Short puzzles for quick brain breaks. ETA: coming soon.</p>
+      <button class="arrow-btn" onclick="loadShiftMerge()">Play Shift Merge instead</button>
+    </div>`;
+}
+
+/* ===========================
+   Shift Merge Game Implementation
+   (wrapped into initShiftMerge() for injection)
+   =========================== */
+function initShiftMerge(){
+  /* === Config & state === */
+  const GRID = 4;
+  const START_TILES = 2;
+  const GOALS = [
+    { value: 2, icon: "☕", label:"Coffee" },
+    { value: 4, icon: "📎", label:"Paperclip stack" },
+    { value: 8, icon: "📝", label:"Notes" },
+    { value: 16, icon: "📁", label:"Files" },
+    { value: 32, icon: "📂", label:"Folders" },
+    { value: 64, icon: "🖨️", label:"Printer" },
+    { value: 128, icon: "🖥️", label:"Monitor" },
+    { value: 256, icon: "💼", label:"Manager tools" },
+    { value: 512, icon: "🏢", label:"Office" },
+    { value: 1024, icon: "🚀", label:"Promotion" },
+    { value: 2048, icon: "👑", label:"CEO" }
+  ];
+  const NOTIFY_TEMPLATES = {
+    4: ["Two coffees? Someone's productive... or caffeinated.", "Coffee stack! ☕☕ — a bold office choice."],
+    8: ["Paperwork handled. Miracles do happen.", "You finished paperwork. HR is confused."],
+    16: ["Files organized! You pretend you like spreadsheets.", "File mastery unlocked. Pretend-it's-not-chaos."],
+    32: ["Folder mastery. Your desk is suspiciously neat.", "Folders? Is this a trust exercise?" ],
+    64: ["Printer upgraded — now it only jams occasionally.", "Your printer respects you today."],
+    128: ["Computer ready. Your tabs are judged.", "Monitor acquired. Productivity illusions increase."],
+    256: ["Manager tools obtained. No meetings scheduled. Yet.", "You now have manager tools. Power corrupts."],
+    512: ["You built an office. Rent payable in stickers.", "Office secured — free plants not included."],
+    1024: ["Promotion launched. HR will have questions.", "Rocket promotion. Update LinkedIn later."],
+    2048: ["You are the King. Bow to the coffee machine.", "CEO achieved. Casual Friday is compulsory."]
+  };
+
+  let board = [];
+  let score = 0;
+  let best = Number(localStorage.getItem('ask_best')||0);
+  let leader = JSON.parse(localStorage.getItem('ask_leader')||'[]');
+
+  let notifTimer = null;
+
+  /* ==== DOM refs (inside injected HTML) ==== */
+  const boardEl = () => document.getElementById('board');
+  const scoreEl = () => document.getElementById('scoreValue');
+  const bestEl = () => document.getElementById('bestValue');
+  const levelEl = () => document.getElementById('levelValue');
+  const notificationEl = () => document.getElementById('notification');
+  const goalListEl = () => document.getElementById('goalList');
+  const leaderListEl = () => document.getElementById('leaderList');
+  const overlay = () => document.getElementById('overlay');
+
+  /* ===== Helpers ===== */
+  function initBoard(){
+    board = Array(GRID).fill(null).map(()=> Array(GRID).fill(0));
+    score = 0;
+    for(let i=0;i<START_TILES;i++) spawnRandom();
+    render();
+  }
+
+  function render(){
+    const container = boardEl();
+    container.innerHTML = '';
+    for(let r=0;r<GRID;r++){
+      for(let c=0;c<GRID;c++){
+        const val = board[r][c];
+        const tile = document.createElement('div');
+        tile.className = 'tile ' + (val ? 'filled' : 'empty');
+        tile.textContent = val ? iconFor(val) : '';
+        container.appendChild(tile);
+      }
+    }
+    updateScore();
+    renderGoals();
+    renderLeaderboardPreview();
+  }
+
+  function iconFor(value){ const g = GOALS.find(x=>x.value===value); return g ? g.icon : String(value); }
+
+  function updateScore(){
+    scoreEl().textContent = score;
+    bestEl().textContent = best;
+    // level computed from highest tile achieved (count of goals unlocked)
+    const maxTile = Math.max(...board.flat());
+    const levelUnlocked = GOALS.reduce((acc,goal) => acc + (maxTile >= goal.value ? 1:0), 0) || 1;
+    levelEl().textContent = levelUnlocked;
+  }
+
+  function renderGoals(){
+    const maxTile = Math.max(...board.flat());
+    const el = goalListEl();
+    if(!el) return;
+    el.innerHTML = '';
+    GOALS.forEach(goal=>{
+      const achieved = maxTile >= goal.value;
+      // percent based on maxTile vs goal
+      const percent = Math.min(100, Math.round((maxTile / goal.value) * 100));
+      const item = document.createElement('div');
+      item.className='goal-item';
+      item.innerHTML = `
+        <div class="goal-icon">${goal.icon}</div>
+        <div class="goal-meta">
+          <div class="label">${goal.label} — ${goal.value} ${achieved?'<span style="color:green">✓</span>':''}</div>
+          <div class="progress-wrap"><div class="progress" style="width:${achieved?100:percent}%"></div></div>
+        </div>
+      `;
+      el.appendChild(item);
+    });
+  }
+
+  function notifyFor(value){
+    const arr = NOTIFY_TEMPLATES[value];
+    if(!arr) return;
+    const msg = arr[Math.floor(Math.random()*arr.length)];
+    const n = notificationEl();
+    if(!n) return;
+    n.textContent = msg;
+    n.style.display = 'block';
+    if(notifTimer) clearTimeout(notifTimer);
+    notifTimer = setTimeout(()=>{ n.style.display='none'; notifTimer=null }, 1500);
+  }
+
+  function spawnRandom(){
+    const empties = [];
+    for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++) if(board[r][c]===0) empties.push([r,c]);
+    if(empties.length===0) return;
+    const [r,c] = empties[Math.floor(Math.random()*empties.length)];
+    const spawnChance = 0.1 + (Math.min(10, Math.max(1, Math.floor(score/200))) * 0.03);
+    board[r][c] = Math.random() < spawnChance ? 4 : 2;
+  }
+
+  /* Movement core */
+  function slideAndMergeRow(row){
+    let arr = row.filter(v=>v!==0);
+    for(let i=0;i<arr.length-1;i++){
+      if(arr[i]===arr[i+1]){
+        arr[i] = arr[i]*2;
+        score += arr[i];
+        if([4,8,16,32,64,128,256,512,1024,2048].includes(arr[i])) notifyFor(arr[i]);
+        arr[i+1]=0; i++;
+      }
+    }
+    arr = arr.filter(v=>v!==0);
+    while(arr.length<GRID) arr.push(0);
+    // update best after scoring
+    if(score>best){ best = score; localStorage.setItem('ask_best', String(best)); }
+    return arr;
+  }
+
+  function arraysEqual(a,b){ return a.length===b.length && a.every((v,i)=>v===b[i]); }
+
+  function moveLeft(){
+    let moved=false;
+    for(let r=0;r<GRID;r++){
+      const old = board[r].slice();
+      const newRow = slideAndMergeRow(old);
+      board[r]=newRow;
+      if(!arraysEqual(old,newRow)) moved=true;
+    }
+    if(moved){ spawnRandom(); render(); if(isGameOver()) openOverlay(); }
+    return moved;
+  }
+  function moveRight(){
+    let moved=false;
+    for(let r=0;r<GRID;r++){
+      const old = board[r].slice();
+      const rev = old.slice().reverse();
+      const merged = slideAndMergeRow(rev);
+      const newRow = merged.reverse();
+      board[r]=newRow;
+      if(!arraysEqual(old,newRow)) moved=true;
+    }
+    if(moved){ spawnRandom(); render(); if(isGameOver()) openOverlay(); }
+    return moved;
+  }
+  function moveUp(){
+    let moved=false;
+    for(let c=0;c<GRID;c++){
+      const col = [];
+      for(let r=0;r<GRID;r++) col.push(board[r][c]);
+      const old = col.slice();
+      const merged = slideAndMergeRow(col);
+      for(let r=0;r<GRID;r++) board[r][c]=merged[r];
+      if(!arraysEqual(old,merged)) moved=true;
+    }
+    if(moved){ spawnRandom(); render(); if(isGameOver()) openOverlay(); }
+    return moved;
+  }
+  function moveDown(){
+    let moved=false;
+    for(let c=0;c<GRID;c++){
+      const col=[];
+      for(let r=0;r<GRID;r++) col.push(board[r][c]);
+      const old = col.slice();
+      const rev = col.slice().reverse();
+      const merged = slideAndMergeRow(rev);
+      const newCol = merged.reverse();
+      for(let r=0;r<GRID;r++) board[r][c]=newCol[r];
+      if(!arraysEqual(old,newCol)) moved=true;
+    }
+    if(moved){ spawnRandom(); render(); if(isGameOver()) openOverlay(); }
+    return moved;
+  }
+
+  function onMoveTriggered(fn){
+    fn();
+    // nothing else here: spawn & render handled inside move functions to avoid double spawning
+  }
+
+  function isGameOver(){
+    for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++) if(board[r][c]===0) return false;
+    for(let r=0;r<GRID;r++){
+      for(let c=0;c<GRID;c++){
+        if(c<GRID-1 && board[r][c]===board[r][c+1]) return false;
+        if(r<GRID-1 && board[r][c]===board[r+1][c]) return false;
+      }
+    }
+    return true;
+  }
+
+  function openOverlay(){
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('finalBest').textContent = best;
+    overlay().style.display = 'flex';
+  }
+
+  function renderLeaderboardPreview(){
+    const el = leaderListEl();
+    if(!el) return;
+    el.innerHTML = '';
+    leader.slice(0,5).forEach(item=>{
+      const d = new Date(item.date);
+      const li = document.createElement('li');
+      li.textContent = `${item.name} — ${item.score} (${d.toLocaleDateString()})`;
+      el.appendChild(li);
+    });
+  }
+
+  /* Attach UI listeners (buttons & keyboard) */
+  document.getElementById('leftBtn').addEventListener('click', ()=> onMoveTriggered(moveLeft));
+  document.getElementById('rightBtn').addEventListener('click', ()=> onMoveTriggered(moveRight));
+  document.getElementById('upBtn').addEventListener('click', ()=> onMoveTriggered(moveUp));
+  document.getElementById('downBtn').addEventListener('click', ()=> onMoveTriggered(moveDown));
+  document.getElementById('restartBtn').addEventListener('click', ()=> initBoard());
+
+  // keyboard handling: prevent scroll and stop propagation
+  function keyboardHandler(e){
+    if(!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) return;
+    e.preventDefault(); e.stopPropagation();
+    switch(e.key){
+      case "ArrowUp": onMoveTriggered(moveUp); break;
+      case "ArrowDown": onMoveTriggered(moveDown); break;
+      case "ArrowLeft": onMoveTriggered(moveLeft); break;
+      case "ArrowRight": onMoveTriggered(moveRight); break;
+    }
+  }
+  document.addEventListener('keydown', keyboardHandler);
+
+  // leaderboard saving
+  document.getElementById('saveScore').addEventListener('click', ()=>{
+    const name = (document.getElementById('playerName').value || 'Agent').slice(0,24);
+    leader.push({name, score, date: (new Date()).toISOString()});
+    leader.sort((a,b)=>b.score - a.score);
+    leader = leader.slice(0,20);
+    localStorage.setItem('ask_leader', JSON.stringify(leader));
+    overlay().style.display = 'none';
+    renderLeaderboardPreview();
+  });
+  document.getElementById('closeOverlay').addEventListener('click', ()=> overlay().style.display='none');
+
+  // initial load + UI update
+  initBoard();
+  renderLeaderboardPreview();
+}
+
+/* Initialize hub view with nothing loaded until user clicks a card.
+   (You can optionally auto-load one game by calling a loader here.)
+*/
+</script>
+</body>
+</html>
